@@ -30,7 +30,7 @@ locals {
   //admin_cidr = "${chomp(data.http.my-public-ip.response_body)}/32" #(customize to your public ranges if desired)
   instance_type = "c6i.xlarge"
   fgt_build     = "build1639" #7.2.8
-  license_type  = "payg"
+  license_type  = "byol"
 
   fgt_number_peer_az = 1
   fgt_cluster_type   = "fgsp" // choose type of cluster either fgsp or fgcp  

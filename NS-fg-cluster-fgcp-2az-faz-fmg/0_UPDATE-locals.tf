@@ -29,7 +29,7 @@ locals {
   admin_cidr    = "0.0.0.0/0"
   instance_type = "c6i.2xlarge"
   fgt_build     = "build1639" #7.2.8
-  license_type  = "payg"
+  license_type  = "byol"
 
   fgt_number_peer_az = 1
   fgt_cluster_type   = "fgcp" // choose type of cluster either fgsp or fgcp  
