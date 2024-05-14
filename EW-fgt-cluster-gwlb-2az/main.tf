@@ -82,8 +82,9 @@ module "fgt" {
 }
 # Create GWLB
 module "gwlb" {
-  source  = "jmvigueras/ftnt-aws-modules/aws//modules/gwlb"
-  version = "0.0.6"
+  //source  = "jmvigueras/ftnt-aws-modules/aws//modules/gwlb"
+  //version = "0.0.6"
+  source = "./modules/gwlb"
 
   prefix     = local.prefix
   subnet_ids = { for k, v in module.fgt_vpc.subnet_ids : k => lookup(v, "gwlb", "") }
