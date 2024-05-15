@@ -9,7 +9,7 @@ locals {
   prefix = "ew-fgt"
 
   tags = {
-    Project = "Fortigate VPC ES inspection"
+    Project = "Fortigate VPC E-W inspection"
   }
 
   region = "eu-west-1"
@@ -21,6 +21,9 @@ locals {
   # AWS cidrs ranges
   aws_cidrs = "10.0.0.0/8"
 
+  # TGW id (provide TGW id to update route tables)
+  # (if "" doesn't create route tables)
+  tgw_id = ""
 
   #-----------------------------------------------------------------------------------------------------
   # Others variables
@@ -48,8 +51,8 @@ locals {
   # - FGCP type of cluster requires a management port
   # - port1 must have Internet access in terms of validate license in case of using FortiFlex token or lic file. 
   fgt_subnet_tags = {
-    "port1.${local.subnet_tags["public"]}"  = "untrusted"
-    "port2.${local.subnet_tags["private"]}" = "trusted"
+    "port1.${local.subnet_tags["public"]}"  = "public"
+    "port2.${local.subnet_tags["private"]}" = "private"
     "port3.${local.subnet_tags["mgmt"]}"    = ""
     "port4.${local.subnet_tags["ha"]}"      = ""
   }

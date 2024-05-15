@@ -6,7 +6,7 @@
 # - FGT instance
 #------------------------------------------------------------------------------
 # Create VPC for hub EU
-module "fgt_vpc" {
+module "ew_fgt_vpc" {
   source  = "jmvigueras/ftnt-aws-modules/aws//modules/vpc"
   version = "0.0.6"
 
@@ -21,15 +21,15 @@ module "fgt_vpc" {
   private_subnet_names = local.private_subnet_names
 }
 # Create FGT NIs
-module "fgt_nis" {
+module "ew_fgt_nis" {
   source  = "jmvigueras/ftnt-aws-modules/aws//modules/fgt_ni_sg"
   version = "0.0.6"
 
   prefix = "${local.prefix}-fgsp"
   azs    = local.azs
 
-  vpc_id      = module.fgt_vpc.vpc_id
-  subnet_list = module.fgt_vpc.subnet_list
+  vpc_id      = module.ew_fgt_vpc.vpc_id
+  subnet_list = module.ew_fgt_vpc.subnet_list
 
   subnet_tags     = local.subnet_tags
   fgt_subnet_tags = local.fgt_subnet_tags
@@ -38,11 +38,11 @@ module "fgt_nis" {
   cluster_type       = local.fgt_cluster_type
 }
 # Create FGTs config
-module "fgt_config" {
+module "ew_fgt_config" {
   source  = "jmvigueras/ftnt-aws-modules/aws//modules/fgt_config"
   version = "0.0.6"
 
-  for_each = { for k, v in module.fgt_nis.fgt_ports_config : k => v }
+  for_each = { for k, v in module.ew_fgt_nis.fgt_ports_config : k => v }
 
   admin_cidr     = local.admin_cidr
   admin_port     = local.admin_port
@@ -56,16 +56,16 @@ module "fgt_config" {
   config_auto_scale = local.fgt_cluster_type == "fgsp" ? true : false
 
   fgt_id     = each.key
-  ha_members = module.fgt_nis.fgt_ports_config
+  ha_members = module.ew_fgt_nis.fgt_ports_config
 
   config_gwlb           = true
-  gwlbe_ip              = lookup(zipmap(keys(module.fgt_nis.fgt_ports_config), values(module.gwlb.gwlbe_ips)), each.key, "")
+  gwlbe_ip              = lookup(zipmap(keys(module.ew_fgt_nis.fgt_ports_config), values(module.gwlb.gwlbe_ips)), each.key, "")
   gwlb_inspection_cidrs = [local.aws_cidrs]
 
   static_route_cidrs = [local.aws_cidrs] //necessary routes to stablish BGP peerings and bastion connection
 }
 # Create FGT for hub EU
-module "fgt" {
+module "ew_fgt" {
   source  = "jmvigueras/ftnt-aws-modules/aws//modules/fgt"
   version = "0.0.6"
 
@@ -77,19 +77,18 @@ module "fgt" {
   license_type = local.license_type
   fgt_build    = local.fgt_build
 
-  fgt_ni_list = module.fgt_nis.fgt_ni_list
-  fgt_config  = { for k, v in module.fgt_config : k => v.fgt_config }
+  fgt_ni_list = module.ew_fgt_nis.fgt_ni_list
+  fgt_config  = { for k, v in module.ew_fgt_config : k => v.fgt_config }
 }
 # Create GWLB
 module "gwlb" {
-  //source  = "jmvigueras/ftnt-aws-modules/aws//modules/gwlb"
-  //version = "0.0.6"
-  source = "./modules/gwlb"
+  source  = "jmvigueras/ftnt-aws-modules/aws//modules/gwlb"
+  version = "0.0.7"
 
   prefix     = local.prefix
-  subnet_ids = { for k, v in module.fgt_vpc.subnet_ids : k => lookup(v, "gwlb", "") }
-  vpc_id     = module.fgt_vpc.vpc_id
-  fgt_ips    = compact([for k, v in module.fgt_nis.fgt_ips_map : lookup(v, "port2.${local.subnet_tags["private"]}", "")])
+  subnet_ids = { for k, v in module.ew_fgt_vpc.subnet_ids : k => lookup(v, "gwlb", "") }
+  vpc_id     = module.ew_fgt_vpc.vpc_id
+  fgt_ips    = compact([for k, v in module.ew_fgt_nis.fgt_ips_map : lookup(v, "port2.${local.subnet_tags["private"]}", "")])
 
   backend_port     = "8008"
   backend_protocol = "HTTP"
@@ -103,27 +102,32 @@ module "gwlb_endpoint" {
   version = "0.0.5"
 
   gwlb_service_name = module.gwlb.gwlb_service_name
-  subnet_ids        = { for i, v in local.azs : "gwlb-az${i + 1}" => lookup(module.fgt_vpc.subnet_ids["az${i + 1}"], "gwlb", "") }
-  vpc_id            = module.fgt_vpc.vpc_id
+  subnet_ids        = { for i, v in local.azs : "gwlb-az${i + 1}" => lookup(module.ew_fgt_vpc.subnet_ids["az${i + 1}"], "gwlb", "") }
+  vpc_id            = module.ew_fgt_vpc.vpc_id
 
   tags = local.tags
 }
 
-/*
 #------------------------------------------------------------------------------
 # Update VPC routes
-# (Use when TGW attachment is completed)
 #------------------------------------------------------------------------------
-# Update private RT route RFC1918 cidrs to FGT NI and TGW
-module "ew_fgt_vpc_routes" {
+# Update subnet route table TGW endpoints to default GWLB endpoints
+module "ew_fgt_vpc_routes_gwlb" {
   source  = "jmvigueras/ftnt-aws-modules/aws//modules/vpc_routes"
-  version = "0.0.5"
-
-  tgw_id     = module.tgw.tgw_id
-  tgw_rt_ids = local.ew_tgw_rt_ids
+  version = "0.0.7"
 
   gwlbe_id    = module.gwlb_endpoint.gwlb_endpoints["gwlb-az1"]
   gwlb_rt_ids = local.ew_gwlb_rt_ids
+}
+# Update subnet route table GWLB endpoints to default TGW id
+module "ew_fgt_vpc_routes_tgw" {
+  source  = "jmvigueras/ftnt-aws-modules/aws//modules/vpc_routes"
+  version = "0.0.7"
+
+  count = local.tgw_id != "" ? 1 : 0
+
+  tgw_id     = local.tgw_id
+  tgw_rt_ids = local.ew_tgw_rt_ids
 }
 locals {
   ew_gwlbe_rt_subnet_names = ["tgw"]
@@ -139,8 +143,6 @@ locals {
     "${pair[0]}-${pair[1]}" => module.ew_fgt_vpc.rt_ids[pair[1]][pair[0]]
   }
 }
-*/
-
 
 
 #------------------------------------------------------------------------------

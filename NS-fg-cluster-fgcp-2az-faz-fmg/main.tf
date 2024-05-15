@@ -119,7 +119,41 @@ module "faz" {
 
   license_type = "byol"
 }
+#------------------------------------------------------------------------------
+# Update VPC routes
+#------------------------------------------------------------------------------
+# Update private RT route RFC1918 cidrs to FGT NI and TGW
+module "ns_fgt_vpc_routes_tgw" {
+  source  = "jmvigueras/ftnt-aws-modules/aws//modules/vpc_routes"
+  version = "0.0.7"
 
+  ni_id     = module.fgt_nis.fgt_ids_map["az1.fgt1"]["port2.private"]
+  ni_rt_ids = local.ns_ni_rt_ids
+}
+# Update private RT route RFC1918 cidrs to FGT NI and TGW
+module "ns_fgt_vpc_routes_ni" {
+  source  = "jmvigueras/ftnt-aws-modules/aws//modules/vpc_routes"
+  version = "0.0.7"
+
+  count = local.tgw_id != "" ? 1 : 0
+
+  tgw_id     = local.tgw_id
+  tgw_rt_ids = local.ns_tgw_rt_ids
+}
+locals {
+  ns_ni_rt_subnet_names  = ["tgw"]
+  ns_tgw_rt_subnet_names = ["private"]
+  # Create map of RT IDs where add routes pointing to a FGT NI
+  ns_ni_rt_ids = {
+    for pair in setproduct(local.ns_ni_rt_subnet_names, [for i, az in local.azs : "az${i + 1}"]) :
+    "${pair[0]}-${pair[1]}" => module.fgt_vpc.rt_ids[pair[1]][pair[0]]
+  }
+  # Create map of RT IDs where add routes pointing to a TGW ID
+  ns_tgw_rt_ids = {
+    for pair in setproduct(local.ns_tgw_rt_subnet_names, [for i, az in local.azs : "az${i + 1}"]) :
+    "${pair[0]}-${pair[1]}" => module.fgt_vpc.rt_ids[pair[1]][pair[0]]
+  }
+}
 
 
 
