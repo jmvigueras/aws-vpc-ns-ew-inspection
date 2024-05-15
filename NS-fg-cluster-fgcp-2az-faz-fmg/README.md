@@ -9,45 +9,24 @@ Modules code uses variables defined at [0_UPDATE-locals.tf](./0_UPDATE-locals.tf
 ```hcl
 locals {
 
-  azs                = ["eu-west-1a"] // List of AZs to deploy
-  fgt_number_peer_az = 2              // choose number of fortigate instances to deploy peer AZ
-  fgt_cluster_type   = "fgsp"         // choose type of cluster either fgsp or fgcp  
+  prefix = "ns-fgt"
 
-  # fgt_tags -> used in tag subnet names (these values are defined as default in module fgt_ni_sg)
-  subnet_tags = {
-    "public"  = "public"
-    "private" = "private"
-    "mgmt"    = "mgmt"
-    "ha"      = "ha-sync"
+  tags = {
+    Project = "Fortigate VPC N-S inspection"
   }
 
-  # fgt_subnet_tags -> add tags to FGT subnets (port1, port2, public, private ...)
-  # - port1, port2 ... mach with fortigate instance ports
-  # - public, private, mgmt ... are the values for tags choosen ih local.subnet_tags
-  fgt_subnet_tags = {
-    "port1.${local.subnet_tags["public"]}"  = "untrusted"
-    "port2.${local.subnet_tags["private"]}" = "trusted"
-    "port3.${local.subnet_tags["mgmt"]}"    = "mgmt" // leave blank or don't add this element to not create a MGMT port
-    "port4.${local.subnet_tags["ha"]}"      = ""     // leave blank or don't add this element to not create a HA port
-  }
+  region = "eu-west-1"
+  azs    = ["eu-west-1a", "eu-west-1b"] //Select 2 AZs to deploy
 
-  # VPC - list of public and private subnet names (include names selected in local.fgt_subnet_tags)
-  public_subnet_names  = [local.fgt_subnet_tags["port1.public"], local.fgt_subnet_tags["port3.mgmt"], "bastion"]
-  private_subnet_names = [local.fgt_subnet_tags["port2.private"], local.fgt_subnet_tags["port4.ha-sync"], "tgw", "gwlb"]
-}
+  # VPC - CIDR
+  fgt_vpc_cidr = "10.1.0.0/24"
 
-module "example" {
-  source = "../fgt"
+  # AWS cidrs ranges
+  aws_cidrs = "10.0.0.0/8"
 
-  prefix   = local.prefix
-  keypair  = "eu-west-1-key-name"
-  
-  fgt_ni_list   = local.fgt_ni_list
-  fgt_config    = local.fgt_config
-
-  license_type  = "byol"
-  instance_type = "c6i.large"
-  fgt_build     = "build1575"
+  # TGW id (provide TGW id to update route tables)
+  # (if "" doesn't create route tables)
+  tgw_id = ""
 }
 ```
 
