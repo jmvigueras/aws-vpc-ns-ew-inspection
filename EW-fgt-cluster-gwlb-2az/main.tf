@@ -62,6 +62,12 @@ module "ew_fgt_config" {
   gwlbe_ip              = lookup(zipmap(keys(module.ew_fgt_nis.fgt_ports_config), values(module.gwlb.gwlbe_ips)), each.key, "")
   gwlb_inspection_cidrs = [local.aws_cidrs]
 
+  config_fmg = local.fmg_ip != "" ? true : false
+  fmg_ip     = local.fmg_ip
+
+  config_faz = local.faz_ip != "" ? true : false
+  faz_ip     = local.faz_ip
+
   static_route_cidrs = [local.aws_cidrs] //necessary routes to stablish BGP peerings and bastion connection
 }
 # Create FGT for hub EU

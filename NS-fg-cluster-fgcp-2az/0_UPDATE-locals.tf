@@ -26,10 +26,21 @@ locals {
   tgw_id = ""
 
   #-----------------------------------------------------------------------------------------------------
+  # FMG and FAZ (optional)
+  #-----------------------------------------------------------------------------------------------------
+  # Configure FAZ and FMG subnet if desired (optonal)
+  # - if blank subnet will not be deployed
+  fmg_faz_subnet_name = ""
+
+  # Configure FAZ and FMG IPs (optional)
+  faz_ip = "" // Update with FAZ IP, if deployed in this code: module.faz.private_ip or public_ip
+  fmg_ip = "" // Update with FMG IP, if deployed in this code: module.fmg.private_ip or public_ip
+
+  #-----------------------------------------------------------------------------------------------------
   # Other variables
   #-----------------------------------------------------------------------------------------------------
   admin_port = "8443"
-  //admin_cidr = "${chomp(data.http.my-public-ip.response_body)}/32" #(customize to your public ranges if desired)
+  //admin_cidr = "" #(customize to your public range if desired)
   admin_cidr    = "0.0.0.0/0"
   instance_type = "c6i.2xlarge"
   fgt_build     = "build1639" #7.2.8
@@ -38,13 +49,9 @@ locals {
   fgt_number_peer_az = 1
   fgt_cluster_type   = "fgcp" // choose type of cluster either fgsp or fgcp  
 
-  # fgt_tags -> map tags used in fgt_subnet_tags to tag subnet names (this valued are define in modules as default)
-  subnet_tags = {
-    "public"  = "public"
-    "private" = "private"
-    "mgmt"    = "mgmt"
-    "ha"      = "ha-sync"
-  }
+  # List of public and private subnets based on fgt_subnet_tags
+  public_subnet_names  = [local.fgt_subnet_tags["port1.public"], local.fgt_subnet_tags["port3.mgmt"], local.fmg_faz_subnet_name]
+  private_subnet_names = [local.fgt_subnet_tags["port2.private"], local.fgt_subnet_tags["port4.ha-sync"], "tgw"]
 
   # fgt_subnet_tags -> add tags to FGT subnets (port1, port2, public, private ...)
   # - leave blank or don't add elements to not create a ports
@@ -57,10 +64,11 @@ locals {
     "port4.${local.subnet_tags["ha"]}"      = ""
   }
 
-  # VPC - list of public and private subnet names
-  fmg_faz_subnet_name = "fmg-faz"
-
-  # List of public and private subnets based on fgt_subnet_tags
-  public_subnet_names  = [local.fgt_subnet_tags["port1.public"], local.fgt_subnet_tags["port3.mgmt"], local.fmg_faz_subnet_name]
-  private_subnet_names = [local.fgt_subnet_tags["port2.private"], local.fgt_subnet_tags["port4.ha-sync"], "tgw"]
+  # fgt_tags -> map tags used in fgt_subnet_tags to tag subnet names (this valued are define in modules as default)
+  subnet_tags = {
+    "public"  = "public"
+    "private" = "private"
+    "mgmt"    = "mgmt"
+    "ha"      = "ha-sync"
+  }
 }

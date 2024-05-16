@@ -58,11 +58,11 @@ module "fgt_config" {
   fgt_id     = each.key
   ha_members = module.fgt_nis.fgt_ports_config
 
-  config_fmg = true
-  fmg_ip     = module.fmg.private_ip
+  config_fmg = local.fmg_ip != "" ? true : false
+  fmg_ip     = local.fmg_ip
 
-  config_faz = true
-  faz_ip     = module.faz.private_ip
+  config_faz = local.faz_ip != "" ? true : false
+  faz_ip     = local.faz_ip
 
   static_route_cidrs = [local.aws_cidrs]
 }
@@ -82,6 +82,7 @@ module "fgt" {
   fgt_ni_list = module.fgt_nis.fgt_ni_list
   fgt_config  = { for k, v in module.fgt_config : k => v.fgt_config }
 }
+/*
 #------------------------------------------------------------------------------
 # Create FMG and FAZ:
 # - FMG
@@ -119,6 +120,7 @@ module "faz" {
 
   license_type = "byol"
 }
+*/
 #------------------------------------------------------------------------------
 # Update VPC routes
 #------------------------------------------------------------------------------
