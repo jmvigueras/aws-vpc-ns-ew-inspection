@@ -82,82 +82,62 @@ module "fgt" {
   fgt_ni_list = module.fgt_nis.fgt_ni_list
   fgt_config  = { for k, v in module.fgt_config : k => v.fgt_config }
 }
-/*
-#------------------------------------------------------------------------------
-# Create FMG and FAZ:
-# - FMG
-# - FAZ
-#------------------------------------------------------------------------------
-module "fmg" {
-  source  = "jmvigueras/ftnt-aws-modules/aws//modules/faz"
-  version = "0.0.6"
 
-  prefix         = local.prefix
-  keypair        = trimspace(aws_key_pair.keypair.key_name)
-  rsa-public-key = trimspace(tls_private_key.ssh.public_key_openssh)
-
-  subnet_id       = module.fgt_vpc.subnet_ids["az1"][local.fmg_faz_subnet_name]
-  subnet_cidr     = module.fgt_vpc.subnet_cidrs["az1"][local.fmg_faz_subnet_name]
-  security_groups = [module.fgt_vpc.sg_ids["default"]]
-
-  cidr_host = 10
-
-  license_type = "byol"
-}
-module "faz" {
-  source  = "jmvigueras/ftnt-aws-modules/aws//modules/faz"
-  version = "0.0.6"
-
-  prefix         = local.prefix
-  keypair        = trimspace(aws_key_pair.keypair.key_name)
-  rsa-public-key = trimspace(tls_private_key.ssh.public_key_openssh)
-
-  subnet_id       = module.fgt_vpc.subnet_ids["az1"][local.fmg_faz_subnet_name]
-  subnet_cidr     = module.fgt_vpc.subnet_cidrs["az1"][local.fmg_faz_subnet_name]
-  security_groups = [module.fgt_vpc.sg_ids["default"]]
-
-  cidr_host = 11
-
-  license_type = "byol"
-}
-*/
 #------------------------------------------------------------------------------
 # Update VPC routes
 #------------------------------------------------------------------------------
-# Update private RT route RFC1918 cidrs to FGT NI and TGW
-module "ns_fgt_vpc_routes_tgw" {
+# Create TGW endpoint subnet RT 0.0.0.0/0 to point to Fortigate private NI
+module "ns_tgw_vpc_routes_to_fgt_ni" {
   source  = "jmvigueras/ftnt-aws-modules/aws//modules/vpc_routes"
   version = "0.0.7"
 
   ni_id     = module.fgt_nis.fgt_ids_map["az1.fgt1"]["port2.private"]
   ni_rt_ids = local.ns_ni_rt_ids
 }
-# Update private RT route RFC1918 cidrs to FGT NI and TGW
-module "ns_fgt_vpc_routes_ni" {
+# Create Fortigate public subnet RT "local.aws_cidr" to point to TGW
+module "ns_fgt_public_routes_to_tgw" {
   source  = "jmvigueras/ftnt-aws-modules/aws//modules/vpc_routes"
   version = "0.0.7"
 
   count = local.tgw_id != "" ? 1 : 0
 
   tgw_id     = local.tgw_id
-  tgw_rt_ids = local.ns_tgw_rt_ids
+  tgw_rt_ids = local.ns_tgw_rt_ids_public
+
+  destination_cidr_block = local.aws_cidrs
 }
+# Create Fortigate private subnet RT 0.0.0.0/0 to point to TGW
+module "ns_fgt_private_routes_to_tgw" {
+  source  = "jmvigueras/ftnt-aws-modules/aws//modules/vpc_routes"
+  version = "0.0.7"
+
+  count = local.tgw_id != "" ? 1 : 0
+
+  tgw_id     = local.tgw_id
+  tgw_rt_ids = local.ns_tgw_rt_ids_private
+}
+
+# Variables to create maps of route tables to create subnet routes
 locals {
-  ns_ni_rt_subnet_names  = ["tgw"]
-  ns_tgw_rt_subnet_names = ["private"]
+  ns_ni_rt_subnet_names    = ["tgw"]
+  ns_tgw_rt_subnet_private = ["private"]
+  ns_tgw_rt_subnet_public  = ["mgmt"]
   # Create map of RT IDs where add routes pointing to a FGT NI
   ns_ni_rt_ids = {
     for pair in setproduct(local.ns_ni_rt_subnet_names, [for i, az in local.azs : "az${i + 1}"]) :
     "${pair[0]}-${pair[1]}" => module.fgt_vpc.rt_ids[pair[1]][pair[0]]
   }
   # Create map of RT IDs where add routes pointing to a TGW ID
-  ns_tgw_rt_ids = {
-    for pair in setproduct(local.ns_tgw_rt_subnet_names, [for i, az in local.azs : "az${i + 1}"]) :
+  ns_tgw_rt_ids_private = {
+    for pair in setproduct(local.ns_tgw_rt_subnet_private, [for i, az in local.azs : "az${i + 1}"]) :
+    "${pair[0]}-${pair[1]}" => module.fgt_vpc.rt_ids[pair[1]][pair[0]]
+  }
+  # Create map of RT IDs where add routes pointing to a TGW ID
+  ns_tgw_rt_ids_public = {
+    for pair in setproduct(local.ns_tgw_rt_subnet_public, [for i, az in local.azs : "az${i + 1}"]) :
     "${pair[0]}-${pair[1]}" => module.fgt_vpc.rt_ids[pair[1]][pair[0]]
   }
 }
-
-
 
 
 
@@ -183,14 +163,4 @@ resource "random_string" "api_key" {
   length  = 30
   special = false
   numeric = true
-}
-# Create new random API key to be provisioned in FortiGates.
-resource "random_string" "vpn_psk" {
-  length  = 20
-  special = false
-  numeric = true
-}
-# Get your public IP
-data "http" "my-public-ip" {
-  url = "http://ifconfig.me/ip"
 }
