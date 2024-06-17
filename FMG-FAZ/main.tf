@@ -21,7 +21,7 @@ module "mgmt_vpc" {
 # - FAZ
 #------------------------------------------------------------------------------
 module "fmg" {
-  source  = "jmvigueras/ftnt-aws-modules/aws//modules/faz"
+  source  = "jmvigueras/ftnt-aws-modules/aws//modules/fmg"
   version = "0.0.6"
 
   prefix         = local.prefix
