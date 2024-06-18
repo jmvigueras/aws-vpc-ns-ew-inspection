@@ -12,6 +12,10 @@ locals {
     Project = "Fortigate VPC N-S inspection"
   }
 
+  volume_tags = {
+    Project = "Fortigate instance"
+  }
+
   region = "eu-west-1"
   azs    = ["eu-west-1a", "eu-west-1b"] //Select 2 AZs to deploy
 

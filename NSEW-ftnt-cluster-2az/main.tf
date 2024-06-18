@@ -110,6 +110,9 @@ module "fgt" {
 
   fgt_ni_list = module.fgt_nis.fgt_ni_list
   fgt_config  = { for k, v in module.fgt_config : k => v.fgt_config }
+
+  tags        = local.tags
+  volume_tags = local.volume_tags
 }
 #------------------------------------------------------------------------------
 # Update VPC routes
@@ -121,7 +124,7 @@ module "subnet_routes_to_fgt_ni" {
   ni_id     = module.fgt_nis.fgt_ids_map["az1.fgt1"]["port2.private"]
   ni_rt_ids = { for i, v in local.azs : "az${i + 1}-tgw" => module.fgt_vpc.rt_ids["az${i + 1}"]["tgw"] }
 }
-# Create Fortigate MGMT subnet RT to point to NAT Gateway
+# Create Fortigate MGMT subnet RT 0.0.0.0/0 to point to NAT Gateway
 module "subnet_routes_to_natgw" {
   source = "./modules/vpc_routes"
 
